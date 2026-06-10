@@ -1209,9 +1209,21 @@ export default function Home() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        let errorMsg = '시나리오를 생성하는 중 오류가 발생했습니다.';
+        try {
+          const errData = await response.json();
+          errorMsg = errData.error || errorMsg;
+        } catch (_) {
+          try {
+            const textErr = await response.text();
+            if (textErr) errorMsg = textErr;
+          } catch (_) {}
+        }
+        throw new Error(errorMsg);
+      }
 
-      if (!response.ok) throw new Error(data.error || 'Failed to generate scenario');
+      const data = await response.json();
       setScenario(data.scenario);
     } catch (err: any) {
       setError(err.message);

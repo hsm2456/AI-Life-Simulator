@@ -154,7 +154,7 @@ ${randomEventInstruction}
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         temperature: 0.8,
         responseMimeType: "application/json",
