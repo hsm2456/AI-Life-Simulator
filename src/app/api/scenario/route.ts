@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-const apiKey = process.env.GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY?.trim();
 
 export const maxDuration = 60; // 60초 타임아웃 허용 (Vercel 환경 등 고려)
 
@@ -154,14 +154,35 @@ ${randomEventInstruction}
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-pro',
+      model: 'gemini-2.5-pro',
       generationConfig: {
         temperature: 0.8,
         responseMimeType: "application/json",
       }
     });
     
-    const result = await model.generateContent(prompt);
+    let result: any;
+    let attempts = 3;
+    let delay = 1000;
+
+    for (let i = 0; i < attempts; i++) {
+      try {
+        result = await model.generateContent(prompt);
+        break;
+      } catch (error: any) {
+        const is503 = error.status === 503 || (error.message && error.message.includes('503'));
+        const is429 = error.status === 429 || (error.message && error.message.includes('429'));
+        
+        if ((is503 || is429) && i < attempts - 1) {
+          console.warn(`Gemini API returned status ${error.status || 'error'}. Retrying attempt ${i + 1}/${attempts} in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2;
+        } else {
+          throw error;
+        }
+      }
+    }
+
     const response = await result.response;
     const text = response.text();
     
