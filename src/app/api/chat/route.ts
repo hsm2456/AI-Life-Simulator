@@ -1,18 +1,13 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
-
-const apiKey = process.env.GEMINI_API_KEY?.trim();
+import { generateGeminiContent, getErrorMessage } from '../gemini';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  if (!apiKey) {
-    return NextResponse.json({ error: 'API key missing' }, { status: 500 });
-  }
+  try {
+    const { messages, scenarioContext, optionContext } = await req.json();
 
-  const { messages, scenarioContext, optionContext } = await req.json();
-
-  const prompt = `
+    const prompt = `
 당신은 사용자가 5년 전에 한 선택("${optionContext.title}")을 바탕으로 살아온 5년 뒤의 '미래의 나'입니다.
 다음은 5년 뒤 당신의 상황입니다:
 - 이 시나리오의 갈림길: ${scenarioContext.turningPoint}
@@ -30,35 +25,9 @@ export async function POST(req: Request) {
 과거의 나: ${messages[messages.length - 1].content}
 미래의 나:`;
 
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
-
-    let result: any;
-    let attempts = 3;
-    let delay = 1000;
-
-    for (let i = 0; i < attempts; i++) {
-      try {
-        result = await model.generateContent(prompt);
-        break;
-      } catch (error: any) {
-        const is503 = error.status === 503 || (error.message && error.message.includes('503'));
-        const is429 = error.status === 429 || (error.message && error.message.includes('429'));
-
-        if ((is503 || is429) && i < attempts - 1) {
-          console.warn(`Gemini API returned status ${error.status || 'error'}. Retrying attempt ${i + 1}/${attempts} in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2;
-        } else {
-          throw error;
-        }
-      }
-    }
-
-    const response = await result.response;
-    return NextResponse.json({ reply: response.text() });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ reply: await generateGeminiContent(prompt) });
+  } catch (error) {
+    console.error('Gemini Chat API Error:', error);
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

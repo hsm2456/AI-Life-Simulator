@@ -1,20 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
-
-const apiKey = process.env.GEMINI_API_KEY;
+import { generateGeminiContent } from '../../gemini';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'GEMINI_API_KEY is not configured.' },
-      { status: 500 }
-    );
-  }
-
   try {
-    const { baseFormData, option, whatIfInput, initialStats } = await req.json();
+    const { baseFormData, option, whatIfInput } = await req.json();
 
     const prompt = `
 당신은 '센티언트(Sentient) 인생 전략가'입니다. 
@@ -53,30 +44,22 @@ export async function POST(req: Request) {
 }
 `;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-pro',
-      generationConfig: {
-        temperature: 0.7,
-        responseMimeType: "application/json",
-      }
+    const text = await generateGeminiContent(prompt, {
+      temperature: 0.7,
+      responseMimeType: 'application/json',
     });
-    
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
     
     let parsedData;
     try {
       const cleanText = text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
       parsedData = JSON.parse(cleanText);
-    } catch (parseError) {
+    } catch {
       console.error("Failed to parse JSON:", text);
       throw new Error("AI가 유효하지 않은 응답을 반환했습니다.");
     }
 
     return NextResponse.json({ whatIfOption: parsedData.whatIfOption });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Gemini What-If API Error:', error);
     return NextResponse.json(
       { error: '시뮬레이션을 생성하는 중 오류가 발생했습니다.' },

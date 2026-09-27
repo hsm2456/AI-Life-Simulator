@@ -1,18 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
-
-const apiKey = process.env.GEMINI_API_KEY?.trim();
+import { generateGeminiContent } from '../gemini';
 
 export const maxDuration = 60; // 60초 타임아웃 허용 (Vercel 환경 등 고려)
 
 export async function POST(req: Request) {
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'GEMINI_API_KEY is not configured.' },
-      { status: 500 }
-    );
-  }
-
   try {
     const { age, jobStatus, financialStatus, mbti, primaryGoal, riskTolerance, socialNet, energyLevel, story, choiceA, choiceB, dynamicAnswer1, dynamicAnswer2, emotionState } = await req.json();
 
@@ -152,51 +143,22 @@ ${randomEventInstruction}
 }
 `;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-pro',
-      generationConfig: {
-        temperature: 0.8,
-        responseMimeType: "application/json",
-      }
+    const text = await generateGeminiContent(prompt, {
+      temperature: 0.8,
+      responseMimeType: 'application/json',
     });
-    
-    let result: any;
-    let attempts = 3;
-    let delay = 1000;
-
-    for (let i = 0; i < attempts; i++) {
-      try {
-        result = await model.generateContent(prompt);
-        break;
-      } catch (error: any) {
-        const is503 = error.status === 503 || (error.message && error.message.includes('503'));
-        const is429 = error.status === 429 || (error.message && error.message.includes('429'));
-        
-        if ((is503 || is429) && i < attempts - 1) {
-          console.warn(`Gemini API returned status ${error.status || 'error'}. Retrying attempt ${i + 1}/${attempts} in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2;
-        } else {
-          throw error;
-        }
-      }
-    }
-
-    const response = await result.response;
-    const text = response.text();
     
     let parsedScenario;
     try {
       const cleanText = text.replace(/```json\n?/g, '').replace(/```/g, '').trim();
       parsedScenario = JSON.parse(cleanText);
-    } catch (parseError) {
+    } catch {
       console.error("Failed to parse JSON:", text);
       throw new Error("AI가 유효하지 않은 응답을 반환했습니다.");
     }
 
     return NextResponse.json({ scenario: parsedScenario });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Gemini API Error:', error);
     return NextResponse.json(
       { error: '시나리오를 생성하는 중 오류가 발생했습니다.' },
