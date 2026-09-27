@@ -2,6 +2,20 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Create `.env.local` with your Gemini API key:
+
+```dotenv
+GEMINI_API_KEY=your_api_key
+# Optional: defaults to the model verified for this project.
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+The selected model must be available to your API project and have an enabled
+quota. `gemini-2.5-pro` rejects requests from new users, and Pro models may require
+billing. Model availability in the model list does not guarantee generation access.
+After changing environment variables, restart the development server. In a hosted
+environment, set the variables there and redeploy.
+
 First, run the development server:
 
 ```bash

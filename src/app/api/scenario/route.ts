@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateGeminiContent } from '../gemini';
+import { generateGeminiContent, getGeminiFailure } from '../gemini';
 
 export const maxDuration = 60; // 60초 타임아웃 허용 (Vercel 환경 등 고려)
 
@@ -159,10 +159,11 @@ ${randomEventInstruction}
 
     return NextResponse.json({ scenario: parsedScenario });
   } catch (error) {
-    console.error('Gemini API Error:', error);
+    const failure = getGeminiFailure(error);
+    console.error('Scenario generation failed:', failure.code);
     return NextResponse.json(
-      { error: '시나리오를 생성하는 중 오류가 발생했습니다.' },
-      { status: 500 }
+      { error: failure.error, code: failure.code },
+      { status: failure.status }
     );
   }
 }
